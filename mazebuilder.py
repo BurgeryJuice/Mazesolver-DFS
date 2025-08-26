@@ -2,7 +2,7 @@ import pygame
 import sys
 
 class MazeBuilder:
-    def __init__(self, rows=12, cols=8, cell_size=80):
+    def __init__(self, rows=8, cols=8, cell_size=80):
         pygame.init()
         self.rows = rows
         self.cols = cols

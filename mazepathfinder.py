@@ -2,6 +2,10 @@ from mazebuilder import *
 import pygame
 
 path = {}
+parent = {}
+alreadysearched = {}
+stack = []
+
 builder = MazeBuilder()
 maze_array, start, end = builder.build_maze()
 checkstart = start
@@ -29,16 +33,14 @@ def display_explored_maze(matrix, explored, start, end, cell_size=80):
                 rect = pygame.Rect(x, y, cell_size, cell_size)
                 coord = (row, col)
 
-                if coord == start:
-                    pygame.draw.rect(screen, (200, 0, 0), rect)
-                elif coord == end:
+                if coord == start or coord == end:
                     pygame.draw.rect(screen, (200, 0, 0), rect)
                 elif matrix[row][col] == 1:
                     pygame.draw.rect(screen, (0, 0, 0), rect)
                 elif coord in path:
-                    pygame.draw.rect(screen, (255, 255, 0), rect)  # yellow for path
+                    pygame.draw.rect(screen, (255, 255, 0), rect)
                 elif coord in explored:
-                    pygame.draw.rect(screen, (173, 216, 230), rect)  # blue for explored
+                    pygame.draw.rect(screen, (173, 216, 230), rect)
                 else:
                     pygame.draw.rect(screen, (255, 255, 255), rect)
 
@@ -49,112 +51,61 @@ def display_explored_maze(matrix, explored, start, end, cell_size=80):
 
         text = font.render("Explored maze | Esc to exit", True, (50, 50, 50))
         screen.blit(text, (10, height - 30))
-
         pygame.display.flip()
 
         for event in pygame.event.get():
-            if event.type == pygame.QUIT or (
-                event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 running = False
 
         clock.tick(60)
 
     pygame.quit()
 
-alreadysearched = {}
-
 def checkalreadysearched(coords):
-    global alreadysearched
     if coords in alreadysearched:
         return False
-    else:
-        alreadysearched[coords] = True
-        return True
-
-def check_left(matrix, coord):
-    return coord[0] > 0 and matrix[coord[0]-1][coord[1]] == 0
-
-def check_right(matrix, coord):
-    return coord[0] < len(matrix)-1 and matrix[coord[0]+1][coord[1]] == 0
-
-def check_up(matrix, coord):
-    return coord[1] > 0 and matrix[coord[0]][coord[1]-1] == 0
-
-def check_down(matrix, coord):
-    return coord[1] < len(matrix[0])-1 and matrix[coord[0]][coord[1]+1] == 0
-
-stack = []
+    alreadysearched[coords] = True
+    return True
 
 def addfrontier(matrix, coord):
-    global stack
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    for dx, dy in directions:
+        new = (coord[0] + dx, coord[1] + dy)
+        if 0 <= new[0] < len(matrix) and 0 <= new[1] < len(matrix[0]) and matrix[new[0]][new[1]] == 0:
+            if checkalreadysearched(new):
+                stack.append(new)
+                parent[new] = coord
 
-    left = (coord[0]-1, coord[1])
-    right = (coord[0]+1, coord[1])
-    up = (coord[0], coord[1]-1)
-    down = (coord[0], coord[1]+1)
-
-    if check_left(matrix, coord) and checkalreadysearched(left):
-        stack.append(left)
-    if check_right(matrix, coord) and checkalreadysearched(right):
-        stack.append(right)
-    if check_up(matrix, coord) and checkalreadysearched(up):
-        stack.append(up)
-    if check_down(matrix, coord) and checkalreadysearched(down):
-        stack.append(down)
-
-def tofrontier(matrix, coord):
-    global stack
+def tofrontier():
     global start
-    l = stack.pop()
-    start = l
+    start = stack.pop()
 
-def checker(matrix, coord):
-    global start
-    global end
+def checker():
     return start == end
 
-def sharprise(coord1, coord2):
-    return coord1[0] != coord2[0] and coord1[1] != coord2[1]
-
-def reversestorer():
-    global path
-    global alreadysearched
-    global checkstart
-    l = list(alreadysearched.keys())[::-1]
-    path[end] = True
-    i = 1
-    beg = l[0]
-    next = l[1]
-    while next != checkstart:
-        if not sharprise(beg, next):
-            beg = next
-            i+=1
-            path[beg] = True
-            next = l[i]
-        else:
-            i+=1
-            next = l[i]
-
-
-
-
-
+def reconstructpath():
+    current = end
+    while current != checkstart:
+        path[current] = True
+        current = parent.get(current)
+        if current is None:
+            break
+    path[checkstart] = True
 
 checkalreadysearched(start)
 addfrontier(maze_array, start)
 
 while stack:
-    tofrontier(maze_array, start)
-    if checker(maze_array, start):
-        print("SOLVED!!")
-        print("number of nodes searched:", len(alreadysearched))
-        reversestorer()
-        print(list(path.keys()))
-        path[checkstart] = True
-        display_explored_maze(maze_array, alreadysearched, start, end)
-        exit(0)
+    tofrontier()
+    if checker():
+        print("solved ig")
 
+        reconstructpath()
+        break
     addfrontier(maze_array, start)
 
-print("UNSOLVABLE")
-display_explored_maze(maze_array, alreadysearched, start, end)
+if start == end:
+    display_explored_maze(maze_array, alreadysearched, checkstart, end)
+else:
+    print("UNSOLVABLE")
+    display_explored_maze(maze_array, alreadysearched, checkstart, end)
